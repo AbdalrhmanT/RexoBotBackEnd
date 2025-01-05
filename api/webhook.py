@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import os
 import json
 import asyncio
@@ -9,13 +9,19 @@ import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telebot import types
+from dotenv import load_dotenv
+
+# تحميل متغيرات البيئة من .env
+load_dotenv()
 
 # Initialize bot
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 bot = AsyncTeleBot(BOT_TOKEN)
 
 # Initialize Firebase
-firebase_config = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
+firebase_config = json.loads('FIREBASE_SERVICE_ACCOUNT')  # تأكد من استخدام اسم الملف الصحيح
+print(f"Loading Firebase config from: {firebase_config_path}")  # يمكن أن يساعدك في التحقق من المسار
+
 cred = credentials.Certificate(firebase_config)
 firebase_admin.initialize_app(cred, {'storageBucket': "telegrambot1-2d42b.appspot.com"})
 db = firestore.client()
@@ -75,7 +81,7 @@ async def start(message):
             'isPremium': is_premium,
             'referrals': {},
             'balance': 0,
-            'mineRate': 0.001,
+            'mineRate': 10,
             'isMining': False,
             'miningStartedTime': None,
             'daily': {
@@ -113,10 +119,10 @@ async def start(message):
                 # Notify referrer about the bonus
                 try:
                     notification_message = (
-                        f"🎉 Congratulations! You received a referral bonus of {bonus_amount} coins 🎉\n\n"
+                        f"\ud83c\udf89 Congratulations! You received a referral bonus of {bonus_amount} coins \ud83c\udf89\n\n"
                         f"Referral Info:\n"
-                        f"👤 {user_first_name} {user_last_name if user_last_name else ''}\n"
-                        f"💰 Your new balance: {new_balance} coins\n"
+                        f"\ud83d\udc64 {user_first_name} {user_last_name if user_last_name else ''}\n"
+                        f"\ud83d\udcb0 Your new balance: {new_balance} coins\n"
                     )
                     await bot.send_message(referrer_id, notification_message)
                 except Exception as e:
@@ -138,25 +144,20 @@ async def start(message):
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        # قراءة بيانات الطلب
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         update_dict = json.loads(post_data.decode('utf-8'))
         
-        # تشغيل المهمة غير المتزامنة لمعالجة التحديث
         asyncio.run(self.process_update(update_dict))
         
-        # إرسال استجابة HTTP 200
         self.send_response(200)
         self.end_headers()
 
     async def process_update(self, update_dict):
-        # معالجة التحديث باستخدام TeleBot
         update = types.Update.de_json(update_dict)
         await bot.process_new_updates([update])
 
-    def do_GET(self):
-        # استجابة بسيطة لفحص حالة البوت
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write("Bot is running".encode())
+def do_GET(self):
+    self.send_response(200)
+    self.end_headers()
+    self.wfile.write("Bot is running".encode())
